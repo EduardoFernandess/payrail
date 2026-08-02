@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: payrail
+      POSTGRES_PASSWORD: payrail
+      POSTGRES_DB: payrail
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payrail -d payrail"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "3003:3003"
+    environment:
+      DATABASE_URL: postgresql://payrail:payrail@db:5432/payrail
+      PORT: 3003
+    depends_on:
+      db:
+        condition: service_healthy

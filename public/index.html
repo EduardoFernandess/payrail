@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PayRail</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+        background: #101418;
+        color: #edf2f7;
+      }
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        background: radial-gradient(800px 420px at 100% 0%, #243528, #101418);
+        min-height: 100vh;
+      }
+      .panel {
+        background: #1a2229;
+        border: 1px solid #2f3b46;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 1rem;
+      }
+      button,
+      input {
+        font: inherit;
+        padding: 0.5rem 0.7rem;
+        border-radius: 8px;
+        border: 1px solid #2f3b46;
+        background: #0f1418;
+        color: inherit;
+      }
+      button {
+        background: #3aa76d;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .muted {
+        color: #9aa7b5;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 0.4rem;
+        border-bottom: 1px solid #2f3b46;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PayRail</h1>
+    <p class="muted">Subscription billing console — plans, open invoices, webhook simulator.</p>
+    <div class="panel">
+      <h3>Plans</h3>
+      <div id="plans" class="muted">Loading…</div>
+    </div>
+    <div class="panel">
+      <h3>Invoices</h3>
+      <button id="reload">Reload invoices</button>
+      <table>
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="invoices"></tbody>
+      </table>
+    </div>
+    <script>
+      async function loadPlans() {
+        const plans = await fetch("/v1/plans").then((r) => r.json());
+        document.getElementById("plans").innerHTML = plans
+          .map((p) => `<div><strong>${p.name}</strong> — ${(p.amountCents / 100).toFixed(2)} / ${p.intervalDays}d (${p.code})</div>`)
+          .join("");
+      }
+      async function loadInvoices() {
+        const rows = await fetch("/v1/invoices").then((r) => r.json());
+        document.getElementById("invoices").innerHTML = rows
+          .map(
+            (inv) => `<tr>
+              <td>${inv.providerRef || inv.id}</td>
+              <td>${(inv.amountCents / 100).toFixed(2)}</td>
+              <td>${inv.status}</td>
+              <td>
+                <button onclick="pay('${inv.providerRef}', true)">Mark paid</button>
+                <button onclick="pay('${inv.providerRef}', false)">Fail payment</button>
+              </td>
+            </tr>`,
+          )
+          .join("");
+      }
+      async function pay(providerRef, success) {
+        await fetch("/webhooks/provider", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providerRef, success }),
+        });
+        await loadInvoices();
+      }
+      document.getElementById("reload").onclick = loadInvoices;
+      loadPlans();
+      loadInvoices();
+    </script>
+  </body>
+</html>

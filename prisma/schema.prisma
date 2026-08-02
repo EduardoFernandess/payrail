@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model Plan {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  amountCents   Int
+  intervalDays  Int            @default(30)
+  subscriptions Subscription[]
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  createdAt     DateTime       @default(now())
+  subscriptions Subscription[]
+  invoices      Invoice[]
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  customerId         String
+  planId             String
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd   DateTime
+  failedPaymentCount Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  customer           Customer           @relation(fields: [customerId], references: [id])
+  plan               Plan               @relation(fields: [planId], references: [id])
+  invoices           Invoice[]
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  customerId     String
+  subscriptionId String
+  amountCents    Int
+  status         InvoiceStatus @default(OPEN)
+  providerRef    String?       @unique
+  createdAt      DateTime      @default(now())
+  paidAt         DateTime?
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+}
